@@ -1,0 +1,937 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Subset Sum Visualizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: { extend: { fontFamily: {
+      sans: ['Inter', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'sans-serif'],
+      mono: ['JetBrains Mono', 'ui-monospace', 'Consolas', 'monospace']
+    } } }
+  };
+  try {
+    const t = localStorage.getItem('ssv-theme');
+    if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark');
+  } catch (e) {}
+</script>
+<style type="text/tailwindcss">
+  @layer components {
+    .card { @apply rounded-2xl border border-zinc-200/80 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900/70; }
+    .card-t { @apply flex items-center gap-2 text-[13px] font-semibold tracking-tight text-zinc-900 dark:text-zinc-100; }
+    .lbl { @apply text-[11px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400; }
+    .btn { @apply inline-flex h-9 select-none items-center justify-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60 focus-visible:ring-offset-1 active:scale-[.97] disabled:pointer-events-none disabled:opacity-40 dark:focus-visible:ring-offset-zinc-900; }
+    .btn-outline { @apply border border-zinc-200 bg-white text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800; }
+    .btn-primary { @apply bg-indigo-600 text-white shadow-sm hover:bg-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400; }
+    .btn-ghost { @apply text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-100; }
+    .pill { @apply inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-medium; }
+    .tab { @apply inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-zinc-500 transition hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60 dark:text-zinc-400 dark:hover:text-zinc-100; }
+    .tab[aria-selected="true"] { @apply bg-zinc-900 text-white shadow-sm dark:bg-zinc-100 dark:text-zinc-900; }
+    .input { @apply h-9 rounded-lg border border-zinc-200 bg-white px-3 text-sm text-zinc-900 shadow-sm outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100; }
+    .kbd { @apply inline-grid h-5 min-w-[20px] place-items-center rounded border border-zinc-200 bg-zinc-50 px-1 font-mono text-[10px] text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300; }
+    .sw { @apply relative inline-flex h-4 w-7 shrink-0 rounded-full bg-zinc-200 transition dark:bg-zinc-700; }
+    .sw > span { @apply absolute left-0.5 top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform; }
+    [aria-checked="true"] .sw { @apply bg-indigo-600; }
+    [aria-checked="true"] .sw > span { @apply translate-x-3; }
+    .tile { @apply rounded-xl border border-zinc-100 bg-zinc-50/70 p-3 dark:border-zinc-800 dark:bg-zinc-950/40; }
+  }
+</style>
+<style>
+  .dotgrid { background-image: radial-gradient(circle, rgb(228 228 231) 1px, transparent 1px); background-size: 18px 18px; }
+  html.dark .dotgrid { background-image: radial-gradient(circle, rgb(39 39 42) 1px, transparent 1px); }
+  .nwrap { cursor: pointer; outline: none; }
+  .nwrap.off { pointer-events: none; }
+  .nd { transition: opacity .22s ease, transform .22s ease; transform-box: fill-box; transform-origin: center; }
+  .nwrap.off .nd { opacity: 0; transform: scale(.8); }
+  .ed { transition: opacity .22s ease; }
+  .ed.off { opacity: 0; }
+  .ed line, .box, .elb rect, .elb text, .sum { transition: stroke .2s, fill .2s; }
+  .nwrap:hover .box { filter: brightness(.96); }
+  html.dark .nwrap:hover .box { filter: brightness(1.35); }
+  .ring { opacity: 0; transition: opacity .2s; transform-box: fill-box; transform-origin: center; }
+  .nwrap:focus-visible .ring { opacity: 1 !important; stroke-dasharray: 3 3; }
+  .pulse { animation: ringPulse .3s ease-out; }
+  @keyframes ringPulse { from { transform: scale(.86); opacity: .15; } to { transform: scale(1); opacity: 1; } }
+  .fade-in { animation: fadeIn .2s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+  details > summary::-webkit-details-marker { display: none; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body class="min-h-screen bg-zinc-50 font-sans text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100">
+<div class="pointer-events-none fixed inset-x-0 top-0 h-72 bg-gradient-to-b from-indigo-100/50 to-transparent dark:from-indigo-950/30"></div>
+
+<header class="sticky top-0 z-30 border-b border-zinc-200/70 bg-white/75 backdrop-blur-md dark:border-zinc-800/70 dark:bg-zinc-950/70">
+  <div class="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4">
+    <div class="grid h-8 w-8 place-items-center rounded-lg bg-zinc-900 text-white shadow-sm dark:bg-zinc-100 dark:text-zinc-900"><i data-icon="branch"></i></div>
+    <div class="min-w-0 leading-tight">
+      <h1 class="truncate text-sm font-semibold tracking-tight">Sum of Subsets</h1>
+      <p class="truncate text-xs text-zinc-500 dark:text-zinc-400">State space tree · backtracking visualizer</p>
+    </div>
+    <div class="ml-auto flex items-center gap-1">
+      <a href="#notes" id="notesLink" class="btn btn-ghost hidden sm:inline-flex"><i data-icon="book"></i>Notes</a>
+      <button id="themeBtn" class="btn btn-ghost w-9 px-0" aria-label="Toggle dark mode"></button>
+    </div>
+  </div>
+</header>
+
+<main class="relative mx-auto max-w-7xl space-y-4 px-4 py-5">
+  <!-- Toolbar -->
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div role="tablist" aria-label="Mode" class="inline-flex items-center gap-1 rounded-xl border border-zinc-200 bg-white p-1 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+      <button role="tab" id="tabTutorial" data-mode="tutorial" aria-controls="treeCard" class="tab"><i data-icon="cap"></i>Tutorial</button>
+      <button role="tab" id="tabExec" data-mode="execution" aria-controls="treeCard" class="tab"><i data-icon="activity"></i>Execution</button>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <button id="quizBtn" role="switch" aria-checked="false" class="btn btn-outline" aria-label="Quiz mode: guess each node's outcome before it is revealed">
+        <span class="sw"><span></span></span>Quiz<span id="quizScore" class="pill hidden border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300"></span>
+      </button>
+      <button id="editBtn" class="btn btn-outline" aria-expanded="false" aria-controls="inputPanel"><i data-icon="pencil"></i>Edit input</button>
+      <div class="inline-flex rounded-lg shadow-sm">
+        <button id="expSvg" class="btn btn-outline rounded-r-none shadow-none" aria-label="Export tree as SVG"><i data-icon="download"></i>SVG</button>
+        <button id="expPng" class="btn btn-outline -ml-px rounded-l-none shadow-none" aria-label="Export tree as PNG">PNG</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom input -->
+  <div id="inputPanel" class="card fade-in hidden p-4">
+    <form id="inputForm" class="flex flex-wrap items-end gap-3" novalidate>
+      <label class="grid gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300">Set S <span class="font-normal text-zinc-500">1–6 positive integers, comma-separated</span>
+        <input id="inSet" class="input w-64" autocomplete="off" spellcheck="false">
+      </label>
+      <label class="grid gap-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-300">Target M <span class="font-normal text-zinc-500">positive integer</span>
+        <input id="inM" type="number" min="1" class="input w-28">
+      </label>
+      <button type="submit" class="btn btn-primary">Generate tree</button>
+      <div class="flex flex-wrap items-center gap-1.5 text-xs text-zinc-500">
+        <span>Presets:</span>
+        <button type="button" class="pill border-zinc-200 bg-white hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800" data-preset="5,10,12|15">{5,10,12} · 15</button>
+        <button type="button" class="pill border-zinc-200 bg-white hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800" data-preset="3,5,6,7|15">{3,5,6,7} · 15</button>
+        <button type="button" class="pill border-zinc-200 bg-white hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800" data-preset="5,10,12,13,15,18|30">{5,10,12,13,15,18} · 30</button>
+      </div>
+    </form>
+    <p id="inErr" class="mt-2 hidden text-xs font-medium text-red-600 dark:text-red-400" role="alert"></p>
+  </div>
+
+  <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+    <section class="min-w-0 space-y-4">
+      <!-- Explanation card (shared component) -->
+      <div id="explainCard" class="card min-h-[112px] p-4 sm:p-5" aria-live="polite"></div>
+
+      <!-- Tree -->
+      <section id="treeCard" class="card overflow-hidden" aria-label="State space tree">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
+          <div class="flex items-center gap-2">
+            <h2 class="card-t">State space tree</h2>
+            <span id="problemPill" class="pill border-zinc-200 bg-zinc-50 font-mono text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-300"></span>
+          </div>
+          <div class="flex flex-wrap items-center gap-1.5 text-[11px] text-zinc-600 dark:text-zinc-300" aria-label="Legend">
+            <span class="pill border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900"><span class="h-2.5 w-2.5 rounded-[4px] border border-zinc-300 bg-white dark:border-zinc-600 dark:bg-zinc-800"></span>live</span>
+            <span class="pill border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">✓ solution</span>
+            <span class="pill border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300">✕ pruned</span>
+            <span class="pill border-zinc-200 bg-zinc-100 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400">– dead end</span>
+            <span class="pill border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300">◎ current</span>
+            <span class="pill border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">✓ include · left ——</span>
+            <span class="pill border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">✗ exclude · right – –</span>
+          </div>
+        </div>
+        <div id="canvasWrap" class="relative">
+          <div id="scroller" class="dotgrid overflow-auto"><div id="svgHost" class="p-2"></div></div>
+          <div id="popover" class="card fade-in absolute z-20 hidden w-80 max-w-[calc(100%-16px)] p-4 shadow-xl" role="dialog" aria-label="Node details"></div>
+        </div>
+        <div class="border-t border-zinc-100 px-4 py-3 dark:border-zinc-800">
+          <div id="ctlTutorial" class="flex flex-wrap items-center gap-2">
+            <button id="bReset" class="btn btn-ghost w-9 px-0" aria-label="Restart from the root (Home)"><i data-icon="rotate"></i></button>
+            <button id="bBack" class="btn btn-outline" aria-label="Previous step (Left arrow)"><i data-icon="chevL"></i>Back</button>
+            <button id="bPlay" class="btn btn-primary w-[92px]" aria-label="Auto-play (Space)"></button>
+            <button id="bNext" class="btn btn-outline" aria-label="Next step (Right arrow)">Next<i data-icon="chevR"></i></button>
+            <div class="ml-1 flex items-center gap-2">
+              <label for="speed" class="text-xs text-zinc-500 dark:text-zinc-400">Speed</label>
+              <input id="speed" type="range" min="0.5" max="3" step="0.5" value="1" class="w-24 accent-indigo-600" aria-label="Auto-play speed">
+              <span id="speedVal" class="w-7 text-xs tabular-nums text-zinc-600 dark:text-zinc-300">1×</span>
+            </div>
+            <div class="flex min-w-[160px] flex-1 items-center gap-3 sm:ml-auto sm:flex-none">
+              <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-100 sm:w-32 sm:flex-none dark:bg-zinc-800"><div id="progBar" class="h-full rounded-full bg-indigo-600 transition-all duration-200 dark:bg-indigo-400"></div></div>
+              <span id="stepLbl" class="whitespace-nowrap text-xs tabular-nums text-zinc-500 dark:text-zinc-400"></span>
+            </div>
+          </div>
+          <div id="ctlExec" class="flex hidden flex-wrap items-center gap-2">
+            <button id="bRun" class="btn btn-primary"><i data-icon="play"></i>Run animation</button>
+            <button id="bAll" class="btn btn-outline"><i data-icon="zap"></i>Show all</button>
+            <button id="bClear" class="btn btn-ghost"><i data-icon="rotate"></i>Clear</button>
+            <span class="text-xs text-zinc-500 sm:ml-auto dark:text-zinc-400">Click any node for its explanation</span>
+          </div>
+          <p id="kbdHint" class="mt-2 hidden text-[11px] text-zinc-500 sm:block dark:text-zinc-400">
+            <span class="kbd">←</span> <span class="kbd">→</span> step · <span class="kbd">Space</span> play/pause · <span class="kbd">Home</span> restart · <span class="kbd">Esc</span> close details
+          </p>
+        </div>
+      </section>
+    </section>
+
+    <aside class="space-y-4">
+      <!-- Running state -->
+      <div class="card">
+        <div class="flex items-center justify-between gap-2 px-4 pb-2 pt-4">
+          <h3 class="card-t">Running state</h3>
+          <span id="rsCall" class="truncate font-mono text-[11px] text-zinc-500 dark:text-zinc-400"></span>
+        </div>
+        <div class="space-y-3 px-4 pb-4">
+          <div>
+            <div class="lbl">Decisions x[1..n]</div>
+            <div id="rsChips" class="mt-1.5 flex flex-wrap gap-1.5"></div>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="tile"><div class="lbl">Partial sum s</div><div class="mt-1 flex items-baseline gap-1"><span id="rsSum" class="text-2xl font-semibold tabular-nums tracking-tight"></span><span id="rsTarget" class="text-xs text-zinc-500 dark:text-zinc-400"></span></div></div>
+            <div class="tile"><div class="lbl">Budget M − s</div><div id="rsBudget" class="mt-1 text-2xl font-semibold tabular-nums tracking-tight"></div></div>
+          </div>
+          <div class="h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800" role="progressbar" aria-label="Partial sum relative to target" id="rsBarWrap"><div id="rsBar" class="h-full rounded-full transition-all duration-200"></div></div>
+          <div>
+            <div class="lbl">Remaining elements <span id="rsRemSum" class="normal-case tracking-normal"></span></div>
+            <div id="rsRemain" class="mt-1.5 flex flex-wrap gap-1.5"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="card">
+        <div class="flex items-center justify-between gap-2 px-4 pb-2 pt-4">
+          <h3 class="card-t">Statistics</h3>
+          <span id="stFull" class="text-[11px] text-zinc-500 dark:text-zinc-400"></span>
+        </div>
+        <div class="space-y-3 px-4 pb-4">
+          <div class="grid grid-cols-3 gap-2">
+            <div class="tile"><div class="lbl">Generated</div><div id="stGen" class="mt-1 text-2xl font-semibold tabular-nums"></div></div>
+            <div class="tile"><div class="lbl text-red-600 dark:text-red-400">✕ Pruned</div><div id="stPr" class="mt-1 text-2xl font-semibold tabular-nums"></div></div>
+            <div class="tile"><div class="lbl text-emerald-700 dark:text-emerald-400">✓ Solutions</div><div id="stSol" class="mt-1 text-2xl font-semibold tabular-nums"></div></div>
+          </div>
+          <div class="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400"><span>Dead ends: <b id="stDead" class="font-semibold text-zinc-700 dark:text-zinc-200"></b></span><span>Max depth: <b id="stDepth" class="font-semibold text-zinc-700 dark:text-zinc-200"></b></span></div>
+          <div>
+            <div class="lbl">Solutions found</div>
+            <div id="stList" class="mt-1.5 flex flex-wrap gap-1.5"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pseudocode -->
+      <div class="card">
+        <div class="flex items-center justify-between gap-2 px-4 pb-2 pt-4">
+          <h3 class="card-t">Pseudocode</h3>
+          <span class="text-[11px] text-zinc-500 dark:text-zinc-400">w[1..n], target M</span>
+        </div>
+        <div id="pseudo" class="overflow-x-auto pb-3 font-mono text-[12px] leading-relaxed"></div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Notes -->
+  <details id="notes" class="card group">
+    <summary class="flex cursor-pointer list-none items-center justify-between gap-2 rounded-2xl px-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/60">
+      <span class="card-t"><i data-icon="book"></i>Notes — complexity &amp; design rationale</span>
+      <span class="text-zinc-400 transition-transform group-open:rotate-90"><i data-icon="chevR"></i></span>
+    </summary>
+    <div class="grid gap-6 border-t border-zinc-100 px-4 py-4 text-sm leading-relaxed text-zinc-600 md:grid-cols-2 dark:border-zinc-800 dark:text-zinc-300">
+      <div>
+        <h4 class="mb-1.5 font-semibold text-zinc-900 dark:text-zinc-100">Algorithm analysis (DAA)</h4>
+        <p>Each level of the state space tree fixes one element (include or exclude), so for <i>n</i> elements the tree has at most 2<sup>n+1</sup> − 1 nodes and the worst-case running time is <b>O(2<sup>n</sup>)</b>, plus O(n) to output each solution. Pruning when s &gt; M and stopping when s = M only cut off subtrees. That helps in practice but does not change the worst case. Extra space is <b>O(n)</b>: the recursion is at most n + 1 calls deep and the decision vector x holds n entries. For the current input the search generates <b data-note="gen"></b> of the <b data-note="full"></b> nodes in the full tree.</p>
+        <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">Textbook variants often sort w and add a second bound (s + remaining &lt; M). This tool deliberately uses only the s &gt; M bound so every node matches the rule stated in the assignment.</p>
+      </div>
+      <div>
+        <h4 class="mb-1.5 font-semibold text-zinc-900 dark:text-zinc-100">UI/UX decisions</h4>
+        <p>The tree gets the largest panel because it is what students are studying. The pseudocode and running-state panels sit next to it, so every step can be matched to a line of code and to concrete numbers (the partial sum and remaining budget). Node status is shown three ways at once (colour, an icon badge and a text caption), and include/exclude edges differ by label (✓/✗) and line style (solid/dashed). This keeps the diagram readable in greyscale and for colour-blind users. Animations stay under 300 ms, and the one accent colour (indigo) is used only to mark “where you are now”. Tutorial and Execution modes share the same explanation card, so the wording is identical whether you step through the tree or click around it.</p>
+      </div>
+    </div>
+  </details>
+
+  <p class="pb-4 text-center text-xs text-zinc-400 dark:text-zinc-500">DAA × UI/UX assignment · Sum of Subsets via backtracking</p>
+</main>
+
+<script>
+(() => {
+  'use strict';
+  const $ = s => document.querySelector(s);
+
+  /* ---------- Icons (lucide-style paths) ---------- */
+  const ICONS = {
+    play: '<polygon points="6 3 20 12 6 21 6 3"/>',
+    pause: '<rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/>',
+    chevL: '<path d="m15 18-6-6 6-6"/>',
+    chevR: '<path d="m9 18 6-6-6-6"/>',
+    rotate: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+    zap: '<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2m-7.07-14.07 1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
+    moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+    cap: '<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>',
+    activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+    download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+    pencil: '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>',
+    x: '<path d="M18 6 6 18M6 6l12 12"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    minus: '<path d="M5 12h14"/>',
+    branch: '<circle cx="12" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="19" r="2"/><path d="M12 7v6M6 17v-2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"/>',
+    book: '<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>',
+    help: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
+    flag: '<path d="M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c3 0 5 2 7.33 2q2 0 3.67-.8a1 1 0 0 1 1.4.9v9.8a1 1 0 0 1-.4.8A6 6 0 0 1 16 16c-3 0-5-2-8-2a6 6 0 0 0-4 1.53"/>'
+  };
+  const ic = (n, c = 'h-4 w-4') => `<svg class="${c} shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
+  document.querySelectorAll('i[data-icon]').forEach(el => { el.outerHTML = ic(el.dataset.icon); });
+
+  /* ---------- Constants ---------- */
+  const PSEUDO = [
+    { t: 'procedure SumOfSubsets(k, s)', c: '' },
+    { t: '  if s > M then return', c: 'prune' },
+    { t: '  if s = M then', c: '' },
+    { t: '    output x[1..k−1]; return', c: 'solution' },
+    { t: '  if k > n then return', c: 'dead end' },
+    { t: '  x[k] ← 1', c: 'include' },
+    { t: '  SumOfSubsets(k + 1, s + w[k])', c: '' },
+    { t: '  x[k] ← 0', c: 'exclude' },
+    { t: '  SumOfSubsets(k + 1, s)', c: '' },
+    { t: 'SumOfSubsets(1, 0)', c: 'initial call' }
+  ];
+  const PILL = {
+    root: 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300',
+    live: 'border-zinc-200 bg-zinc-50 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-300',
+    success: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300',
+    pruned: 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300',
+    dead: 'border-zinc-200 bg-zinc-100 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400'
+  };
+  const ICONBOX = {
+    root: 'bg-indigo-600 text-white dark:bg-indigo-500',
+    live: 'bg-zinc-100 text-zinc-700 ring-1 ring-inset ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-200 dark:ring-zinc-700',
+    success: 'bg-emerald-600 text-white',
+    pruned: 'bg-red-600 text-white',
+    dead: 'bg-zinc-500 text-white dark:bg-zinc-600'
+  };
+  const KIND = {
+    root:    { title: 'Start at the root',           pill: 'Root',      icon: 'flag' },
+    live:    { title: 'Feasible, keep exploring',    pill: 'Live node', icon: 'chevR' },
+    success: { title: 'Solution found',              pill: '✓ Success', icon: 'check' },
+    pruned:  { title: 'Bound exceeded, prune',       pill: '✕ Pruned',  icon: 'x' },
+    dead:    { title: 'Dead end, backtrack',         pill: '– Dead end', icon: 'minus' }
+  };
+  const OUT_HL = {
+    root: 'border-indigo-500 bg-indigo-50 text-indigo-900 dark:bg-indigo-500/15 dark:text-indigo-100',
+    success: 'border-emerald-500 bg-emerald-50 text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-100',
+    pruned: 'border-red-500 bg-red-50 text-red-900 dark:bg-red-500/15 dark:text-red-100',
+    dead: 'border-zinc-400 bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100'
+  };
+  const GEN_HL = 'border-indigo-500 bg-indigo-50/70 text-indigo-900 dark:bg-indigo-500/10 dark:text-indigo-100';
+  const GLYPH = { success: 'M-3.6 0.2 L-1.1 2.7 L3.8 -2.4', pruned: 'M-2.7 -2.7 L2.7 2.7 M2.7 -2.7 L-2.7 2.7', dead: 'M-3.2 0 H3.2' };
+  const CAP = { success: 'solution', pruned: 'pruned', dead: 'dead end' };
+  const GUESS = { live: 'Keep exploring', pruned: 'Prune (s > M)', success: 'Solution (s = M)', dead: 'Dead end' };
+
+  const G = { GUT: 118, GAP: 100, LEVEL: 108, TOP: 44, NW: 72, NH: 44 };
+
+  function pal() {
+    return document.documentElement.classList.contains('dark') ? {
+      canvas: '#09090b', edge: '#3f3f46', prunedEdge: '#7f1d1d', accent: '#818cf8',
+      lbBg: '#18181b', lbBorder: '#3f3f46', lbText: '#e4e4e7', lbMuted: '#a1a1aa',
+      rowText: '#d4d4d8', rowMuted: '#71717a', grid: '#3f3f46', caption: '#a1a1aa',
+      live: { fill: '#18181b', stroke: '#52525b', text: '#fafafa' },
+      success: { fill: '#022c22', stroke: '#34d399', text: '#6ee7b7', badge: '#059669', cap: '#6ee7b7' },
+      pruned: { fill: '#2b1113', stroke: '#f87171', text: '#fca5a5', badge: '#dc2626', cap: '#fca5a5' },
+      dead: { fill: '#1c1c1f', stroke: '#3f3f46', text: '#a1a1aa', badge: '#52525b', cap: '#a1a1aa' }
+    } : {
+      canvas: '#ffffff', edge: '#d4d4d8', prunedEdge: '#fca5a5', accent: '#4f46e5',
+      lbBg: '#ffffff', lbBorder: '#e4e4e7', lbText: '#3f3f46', lbMuted: '#71717a',
+      rowText: '#3f3f46', rowMuted: '#a1a1aa', grid: '#d4d4d8', caption: '#71717a',
+      live: { fill: '#ffffff', stroke: '#d4d4d8', text: '#18181b' },
+      success: { fill: '#ecfdf5', stroke: '#10b981', text: '#047857', badge: '#059669', cap: '#047857' },
+      pruned: { fill: '#fef2f2', stroke: '#f87171', text: '#b91c1c', badge: '#dc2626', cap: '#b91c1c' },
+      dead: { fill: '#f4f4f5', stroke: '#d4d4d8', text: '#71717a', badge: '#71717a', cap: '#71717a' }
+    };
+  }
+
+  /* ---------- State ---------- */
+  const state = {
+    w: [5, 10, 12], M: 15,
+    nodes: [], leaves: 0, W: 0, H: 0, els: [],
+    mode: 'tutorial',
+    tStep: 0, playing: false, timer: null, speed: 1,
+    eCount: 0, eTimer: null, eStarted: false,
+    selected: null, popId: null, lastActive: null,
+    quiz: false, quizPending: false, quizFeedback: null, score: { r: 0, t: 0 }
+  };
+  const N = () => state.nodes.length;
+  const fmtSet = a => '{' + a.join(', ') + '}';
+  const subsetOf = n => state.w.filter((_, i) => n.x[i] === 1);
+
+  /* ---------- Algorithm: build the state space tree (preorder = DFS visiting order) ---------- */
+  function buildTree(w, M) {
+    const nodes = [], n = w.length;
+    function rec(depth, s, x, parent, choice) {
+      const node = { id: nodes.length, depth, s, x: x.slice(), parent, choice, children: [] };
+      nodes.push(node);
+      if (s > M) node.status = 'pruned';            // bound: partial sum exceeds target
+      else if (s === M) node.status = 'success';    // solution node, stop expanding
+      else if (depth === n) node.status = 'dead';   // all decided, sum < M
+      else {
+        node.status = 'live';
+        x.push(1); node.children.push(rec(depth + 1, s + w[depth], x, node, 1)); x.pop();
+        x.push(0); node.children.push(rec(depth + 1, s, x, node, 0)); x.pop();
+      }
+      return node;
+    }
+    rec(0, 0, [], null, null);
+    let leaf = 0;
+    (function place(nd) {
+      if (!nd.children.length) nd.lx = leaf++;
+      else { nd.children.forEach(place); nd.lx = (nd.children[0].lx + nd.children[1].lx) / 2; }
+    })(nodes[0]);
+    return { nodes, leaves: leaf };
+  }
+  const px = nd => G.GUT + 46 + nd.lx * G.GAP;
+  const py = nd => G.TOP + nd.depth * G.LEVEL;
+
+  /* ---------- SVG rendering ---------- */
+  function renderSVG() {
+    const { nodes, leaves, w } = state, n = w.length;
+    const W = G.GUT + 46 + Math.max(0, leaves - 1) * G.GAP + 56;
+    const H = G.TOP + n * G.LEVEL + 48;
+    state.W = W; state.H = H;
+    let s = `<svg id="treeSvg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" font-family="Inter, 'Segoe UI', system-ui, sans-serif" style="display:block;width:100%;min-width:${Math.round(W * 0.75)}px;max-width:${Math.round(W * 1.3)}px;height:auto;margin:0 auto" role="group" aria-label="State space tree for S = ${fmtSet(w)}, M = ${state.M}">`;
+    s += '<g id="rows">';
+    for (let d = 0; d <= n; d++) {
+      const y = G.TOP + d * G.LEVEL;
+      s += `<text class="rowlv" x="16" y="${y + 4}" font-size="10.5" font-weight="500">Level ${d}</text>`;
+      if (d < n) {
+        const ym = y + G.LEVEL / 2;
+        s += `<text class="rowdec" data-d="${d}" x="16" y="${ym - 5}" font-size="9" font-weight="600" letter-spacing="0.08em">DECIDE</text>`;
+        s += `<text class="roww" data-d="${d}" x="16" y="${ym + 11}" font-size="12.5" font-weight="600">w${d + 1} = ${w[d]}</text>`;
+      }
+    }
+    s += `<line class="rowsep" x1="${G.GUT - 12}" x2="${G.GUT - 12}" y1="${G.TOP - 22}" y2="${H - 16}" stroke-dasharray="2 4"/></g><g id="edges">`;
+    nodes.forEach(nd => {
+      if (!nd.parent) return;
+      const p = nd.parent, x1 = px(p), y1 = py(p) + G.NH / 2, x2 = px(nd), y2 = py(nd) - G.NH / 2;
+      s += `<g class="ed off" data-id="${nd.id}"><line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke-linecap="round"/>` +
+           `<g class="elb" transform="translate(${(x1 + x2) / 2},${(y1 + y2) / 2})"><rect y="-10" height="20" rx="10" stroke-width="1"/><text y="4" text-anchor="middle" font-size="11" font-weight="600"></text></g></g>`;
+    });
+    s += '</g><g id="nodes">';
+    const { NW, NH } = G;
+    nodes.forEach(nd => {
+      s += `<g class="nwrap off" data-id="${nd.id}" transform="translate(${px(nd)},${py(nd)})" tabindex="-1" role="button"><g class="nd">` +
+           `<rect class="ring" x="${-NW / 2 - 5}" y="${-NH / 2 - 5}" width="${NW + 10}" height="${NH + 10}" rx="16" fill="none" stroke-width="2"/>` +
+           `<rect class="box" x="${-NW / 2}" y="${-NH / 2}" width="${NW}" height="${NH}" rx="12"/>` +
+           `<text class="sum" y="6" text-anchor="middle" font-size="17" font-weight="600"></text>` +
+           `<g class="badge" transform="translate(${NW / 2 - 2},${-NH / 2 + 2})"><circle r="8.5"/><path fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>` +
+           `<text class="cap" y="${NH / 2 + 15}" text-anchor="middle" font-size="10.5" font-weight="500"></text></g></g>`;
+    });
+    s += '</g></svg>';
+    $('#svgHost').innerHTML = s;
+    const svg = $('#treeSvg');
+    state.els = nodes.map(nd => {
+      const wrap = svg.querySelector(`.nwrap[data-id="${nd.id}"]`);
+      const ed = svg.querySelector(`.ed[data-id="${nd.id}"]`);
+      return {
+        wrap, ring: wrap.querySelector('.ring'), box: wrap.querySelector('.box'), sum: wrap.querySelector('.sum'),
+        badge: wrap.querySelector('.badge'), badgeC: wrap.querySelector('.badge circle'), badgeP: wrap.querySelector('.badge path'),
+        cap: wrap.querySelector('.cap'), ed, line: ed && ed.querySelector('line'), elbR: ed && ed.querySelector('rect'), elbT: ed && ed.querySelector('text')
+      };
+    });
+    state.lastActive = null;
+  }
+
+  /* ---------- View helpers ---------- */
+  function focusNode() {
+    if (state.mode === 'tutorial') return state.nodes[state.tStep];
+    if (state.selected != null && state.selected < state.eCount) return state.nodes[state.selected];
+    if (state.eTimer && state.eCount > 0) return state.nodes[state.eCount - 1];
+    return null;
+  }
+  const visibleCount = () => state.mode === 'tutorial' ? state.tStep + 1 : state.eCount;
+  const pendingId = () => (state.mode === 'tutorial' && state.quizPending) ? state.tStep + 1 : -1;
+  const kindOf = n => n.parent ? n.status : 'root';
+
+  function updateTree() {
+    const P = pal(), f = focusNode(), vc = visibleCount(), pend = pendingId(), w = state.w;
+    const path = new Set(); for (let a = f; a; a = a.parent) path.add(a.id);
+    const svg = $('#treeSvg');
+    svg.querySelectorAll('.rowlv').forEach(t => t.setAttribute('fill', P.rowMuted));
+    svg.querySelectorAll('.rowdec').forEach(t => t.setAttribute('fill', f && f.depth - 1 === +t.dataset.d ? P.accent : P.rowMuted));
+    svg.querySelectorAll('.roww').forEach(t => t.setAttribute('fill', f && f.depth - 1 === +t.dataset.d ? P.accent : P.rowText));
+    svg.querySelector('.rowsep').setAttribute('stroke', P.grid);
+
+    state.nodes.forEach(nd => {
+      const E = state.els[nd.id], pending = nd.id === pend, vis = nd.id < vc || pending;
+      const active = !!f && f.id === nd.id;
+      const C = P[pending ? 'live' : nd.status];
+      E.wrap.classList.toggle('off', !vis);
+      E.wrap.setAttribute('tabindex', vis ? '0' : '-1');
+      E.wrap.setAttribute('aria-hidden', vis ? 'false' : 'true');
+      E.box.setAttribute('fill', C.fill);
+      E.box.setAttribute('stroke', pending || active ? P.accent : C.stroke);
+      E.box.setAttribute('stroke-width', active ? 2.25 : 1.5);
+      E.box.setAttribute('stroke-dasharray', pending || (nd.status === 'pruned') ? '4 3' : '');
+      E.sum.textContent = pending ? '?' : nd.s;
+      E.sum.setAttribute('fill', pending ? P.accent : C.text);
+      const showBadge = !pending && nd.status !== 'live';
+      E.badge.style.display = showBadge ? '' : 'none';
+      if (showBadge) { E.badgeC.setAttribute('fill', C.badge); E.badgeP.setAttribute('d', GLYPH[nd.status]); }
+      E.cap.textContent = pending ? 'your guess?' : (CAP[nd.status] || '');
+      E.cap.setAttribute('fill', pending ? P.accent : (C.cap || P.caption));
+      E.ring.setAttribute('stroke', P.accent);
+      E.ring.style.opacity = active ? 1 : 0;
+      if (active && state.lastActive !== nd.id) {
+        E.ring.classList.remove('pulse'); void E.ring.getBoundingClientRect(); E.ring.classList.add('pulse');
+      }
+      const how = nd.parent ? `${nd.choice ? 'Include' : 'Exclude'} w${nd.depth} = ${w[nd.depth - 1]}` : 'Root';
+      E.wrap.setAttribute('aria-label', pending ? 'Next node, outcome hidden (quiz)' : `${how}. Sum ${nd.s}. ${KIND[kindOf(nd)].pill.replace(/[✓✕–] /, '')}.`);
+
+      if (E.ed) {
+        const onp = path.has(nd.id) && !pending;
+        E.ed.classList.toggle('off', !vis);
+        E.line.setAttribute('stroke', onp ? P.accent : (pending ? P.accent : (nd.status === 'pruned' ? P.prunedEdge : P.edge)));
+        E.line.setAttribute('stroke-width', onp ? 2.25 : 1.5);
+        E.line.setAttribute('stroke-dasharray', pending ? '1.5 4' : (nd.choice ? '' : '5 4'));
+        const lbl = pending ? '?' : (nd.choice ? '✓ ' : '✗ ') + w[nd.depth - 1];
+        E.elbT.textContent = lbl;
+        const wd = 14 + lbl.length * 6.6;
+        E.elbR.setAttribute('x', -wd / 2); E.elbR.setAttribute('width', wd);
+        E.elbR.setAttribute('fill', P.lbBg);
+        E.elbR.setAttribute('stroke', onp || pending ? P.accent : P.lbBorder);
+        E.elbT.setAttribute('fill', onp || pending ? P.accent : (nd.choice ? P.lbText : P.lbMuted));
+      }
+    });
+    state.lastActive = f ? f.id : null;
+  }
+
+  /* ---------- Shared explanation component ---------- */
+  function explainData(n) {
+    const { w, M } = state;
+    if (!n.parent) return {
+      kind: 'root', gen: [], out: [10, 1],
+      text: `No elements decided yet: running sum <b>s = 0</b>, target <b>M = ${M}</b>. DFS first decides <b>w1 = ${w[0]}</b>, trying <i>include</i> (left child) before <i>exclude</i> (right child).`
+    };
+    const i = n.depth - 1, v = w[i], p = n.parent.s, lbl = `w${i + 1} = ${v}`;
+    const act = n.choice ? `Including <b>${lbl}</b>` : `Excluding <b>${lbl}</b>`;
+    const sumPart = n.choice ? `makes the running sum ${p} + ${v} = <b>${n.s}</b>` : `keeps the running sum at <b>${n.s}</b>`;
+    const gen = n.choice ? [6, 7] : [8, 9];
+    switch (n.status) {
+      case 'pruned': return { kind: 'pruned', gen, out: [2],
+        text: `${act} would make the sum ${p} + ${v} = <b>${n.s} &gt; ${M}</b>, so the bound is violated and this branch is pruned. None of its descendants are generated; backtrack to the parent.` };
+      case 'success': return { kind: 'success', gen, out: [3, 4],
+        text: `${act} ${sumPart}, which equals the target, so a <b>solution is found: ${fmtSet(subsetOf(n))}</b>. Record it and backtrack; including anything else would overshoot.` };
+      case 'dead': return { kind: 'dead', gen, out: [5],
+        text: `${act} ${sumPart}. All ${w.length} elements are decided but ${n.s} ≠ ${M}, so this is a dead end (no solution here). Backtrack.` };
+      default: return { kind: 'live', gen, out: [],
+        text: `${act} ${sumPart} ≤ ${M}, so the node is still feasible (budget left ${M - n.s}). Next, decide <b>w${i + 2} = ${w[i + 1]}</b>.` };
+    }
+  }
+
+  function explainHTML(n, compact) {
+    const d = explainData(n), K = KIND[d.kind];
+    return `<div class="flex items-start gap-3 ${compact ? 'pr-6' : ''}">
+      <div class="grid ${compact ? 'h-8 w-8' : 'h-10 w-10'} shrink-0 place-items-center rounded-xl ${ICONBOX[d.kind]}">${ic(K.icon)}</div>
+      <div class="min-w-0">
+        <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <h2 class="${compact ? 'text-sm' : 'text-[15px]'} font-semibold tracking-tight">${K.title}</h2>
+          <span class="pill ${PILL[d.kind]}">${K.pill}</span>
+        </div>
+        <div class="mt-0.5 font-mono text-[11px] text-zinc-500 dark:text-zinc-400">SumOfSubsets(k = ${n.depth + 1}, s = ${n.s})</div>
+        <p class="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">${d.text}</p>
+      </div>
+    </div>`;
+  }
+
+  function counts(limit) {
+    const c = { gen: 0, pruned: 0, success: 0, dead: 0, depth: 0, sols: [] };
+    for (let i = 0; i < limit; i++) {
+      const n = state.nodes[i]; c.gen++; c.depth = Math.max(c.depth, n.depth);
+      if (n.status === 'pruned') c.pruned++;
+      else if (n.status === 'success') { c.success++; c.sols.push(subsetOf(n)); }
+      else if (n.status === 'dead') c.dead++;
+    }
+    return c;
+  }
+
+  function updateExplain() {
+    const card = $('#explainCard');
+    let h = '';
+    if (state.mode === 'tutorial') {
+      const fb = state.quizFeedback;
+      if (fb) {
+        const cls = fb.skip ? 'border-zinc-200 bg-zinc-50 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-300'
+          : fb.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200'
+          : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200';
+        const msg = fb.skip ? `Revealed without guessing. It's a <b>${GUESS[fb.actual].toLowerCase()}</b> node.`
+          : fb.ok ? `${ic('check', 'inline h-3.5 w-3.5')} Correct: <b>${GUESS[fb.actual]}</b>.`
+          : `Not quite. You guessed <b>${GUESS[fb.guess]}</b>, but the answer is <b>${GUESS[fb.actual]}</b>.`;
+        h += `<div class="fade-in mb-3 rounded-lg border px-3 py-2 text-xs ${cls}">${msg}</div>`;
+      }
+      h += explainHTML(state.nodes[state.tStep]);
+      if (state.quizPending) {
+        h += `<div class="fade-in mt-4 rounded-xl border border-dashed border-indigo-300 bg-indigo-50/60 p-3 dark:border-indigo-500/40 dark:bg-indigo-500/10">
+          <p class="flex items-center gap-1.5 text-sm font-medium text-indigo-900 dark:text-indigo-200">${ic('help')}Quiz: DFS moves to the “?” node. What happens there?</p>
+          <p class="mt-1 text-xs text-indigo-800/80 dark:text-indigo-200/70">Its edge label is hidden. Work out whether it's the include (left) or exclude (right) branch, compute the new sum, then apply the checks in the pseudocode.</p>
+          <div class="mt-2.5 flex flex-wrap gap-1.5">${Object.keys(GUESS).map(k => `<button class="btn btn-outline h-8 text-xs" data-guess="${k}">${GUESS[k]}</button>`).join('')}</div>
+        </div>`;
+      } else if (state.tStep === N() - 1) {
+        const c = counts(N());
+        h += `<div class="fade-in mt-4 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300">
+          <b>Traversal complete.</b> ${c.gen} nodes generated, ${c.pruned} pruned, ${c.success} solution${c.success === 1 ? '' : 's'}${c.sols.length ? ': ' + c.sols.map(fmtSet).join(', ') : ''}.
+          Switch to <b>Execution</b> to see the whole tree at once, or press restart.</div>`;
+      }
+    } else {
+      const f = state.selected != null && state.selected < state.eCount ? state.nodes[state.selected] : null;
+      if (f) h = explainHTML(f);
+      else {
+        const done = state.eCount >= N(), c = counts(state.eCount);
+        h = `<div class="flex items-start gap-3">
+          <div class="grid h-10 w-10 shrink-0 place-items-center rounded-xl ${ICONBOX.root}">${ic(done ? 'check' : 'activity')}</div>
+          <div><h2 class="text-[15px] font-semibold tracking-tight">${done ? 'Full tree generated' : state.eTimer ? 'Generating the state space tree…' : 'Ready to execute'}</h2>
+          <p class="mt-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">${done
+            ? `The search generated <b>${c.gen}</b> nodes, pruned <b>${c.pruned}</b> and found <b>${c.success}</b> solution${c.success === 1 ? '' : 's'}${c.sols.length ? ' (' + c.sols.map(fmtSet).join(', ') + ')' : ''}. Click any node to see why it has that status.`
+            : state.eTimer ? `DFS order: node ${state.eCount} of ${N()}.` : 'Press <b>Run animation</b> to generate the tree, or <b>Show all</b> to see it instantly.'}</p></div></div>`;
+      }
+    }
+    card.innerHTML = h;
+  }
+
+  function updateRunningState() {
+    const n = focusNode() || state.nodes[0], { w, M } = state;
+    $('#rsCall').textContent = `k = ${n.depth + 1}, s = ${n.s}`;
+    $('#rsChips').innerHTML = w.map((v, i) => {
+      if (i < n.depth) return n.x[i]
+        ? `<span class="pill border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300" title="included">✓ w${i + 1}=${v}</span>`
+        : `<span class="pill border-zinc-200 bg-zinc-100 text-zinc-500 line-through decoration-zinc-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400" title="excluded">✗ w${i + 1}=${v}</span>`;
+      return `<span class="pill border-dashed border-zinc-300 text-zinc-500 dark:border-zinc-600 dark:text-zinc-400" title="not decided yet">? w${i + 1}=${v}</span>`;
+    }).join('');
+    $('#rsSum').textContent = n.s;
+    $('#rsTarget').textContent = `/ M = ${M}`;
+    const b = M - n.s, bEl = $('#rsBudget');
+    bEl.textContent = b;
+    bEl.className = 'mt-1 text-2xl font-semibold tabular-nums tracking-tight ' + (b < 0 ? 'text-red-600 dark:text-red-400' : b === 0 ? 'text-emerald-600 dark:text-emerald-400' : '');
+    const bar = $('#rsBar');
+    bar.style.width = Math.min(100, (n.s / M) * 100) + '%';
+    bar.className = 'h-full rounded-full transition-all duration-200 ' + (n.s > M ? 'bg-red-500' : n.s === M ? 'bg-emerald-500' : 'bg-indigo-600 dark:bg-indigo-400');
+    $('#rsBarWrap').setAttribute('aria-valuenow', n.s); $('#rsBarWrap').setAttribute('aria-valuemax', M);
+    const rem = w.slice(n.depth), terminal = n.status !== 'live';
+    $('#rsRemSum').textContent = rem.length ? `· total ${rem.reduce((a, c) => a + c, 0)}` : '';
+    $('#rsRemain').innerHTML = rem.length
+      ? rem.map((v, j) => `<span class="pill border-zinc-200 bg-white text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 ${terminal ? 'opacity-50' : ''}">w${n.depth + j + 1}=${v}</span>`).join('') + (terminal ? `<span class="text-xs text-zinc-500 dark:text-zinc-400">not explored (${n.status === 'success' ? 'solution reached' : 'branch pruned'})</span>` : '')
+      : '<span class="text-xs text-zinc-500 dark:text-zinc-400">none, all elements decided</span>';
+  }
+
+  function updateStats() {
+    const c = counts(visibleCount());
+    $('#stGen').textContent = c.gen; $('#stPr').textContent = c.pruned; $('#stSol').textContent = c.success;
+    $('#stDead').textContent = c.dead; $('#stDepth').textContent = c.depth;
+    $('#stFull').textContent = `full tree: ${2 ** (state.w.length + 1) - 1} nodes`;
+    $('#stList').innerHTML = c.sols.length
+      ? c.sols.map(s => `<span class="pill ${PILL.success}">✓ ${fmtSet(s)}</span>`).join('')
+      : '<span class="text-xs text-zinc-500 dark:text-zinc-400">none yet</span>';
+  }
+
+  function updatePseudo() {
+    const f = focusNode();
+    const d = f ? explainData(f) : { gen: [], out: [], kind: 'live' };
+    $('#pseudo').innerHTML = PSEUDO.map((l, i) => {
+      const ln = i + 1, isOut = d.out.includes(ln), isGen = d.gen.includes(ln);
+      const hl = isOut ? OUT_HL[d.kind] : isGen ? GEN_HL : 'border-transparent text-zinc-700 dark:text-zinc-300';
+      return `<div class="flex items-baseline gap-3 border-l-2 px-3 py-[3px] transition-colors duration-200 ${hl} ${ln === 10 ? 'mt-1.5 border-t border-t-zinc-100 pt-1.5 dark:border-t-zinc-800' : ''}" ${isOut || isGen ? 'aria-current="true"' : ''}>
+        <span class="w-4 shrink-0 select-none text-right text-zinc-400 dark:text-zinc-500">${ln}</span>
+        <span class="whitespace-pre">${l.t}</span>
+        ${l.c ? `<span class="ml-auto whitespace-nowrap pl-2 text-[11px] text-zinc-400 dark:text-zinc-500">▷ ${l.c}</span>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  function updateControls() {
+    const tut = state.mode === 'tutorial';
+    $('#tabTutorial').setAttribute('aria-selected', tut); $('#tabExec').setAttribute('aria-selected', !tut);
+    $('#tabTutorial').tabIndex = tut ? 0 : -1; $('#tabExec').tabIndex = tut ? -1 : 0;
+    $('#ctlTutorial').classList.toggle('hidden', !tut);
+    $('#ctlExec').classList.toggle('hidden', tut);
+    $('#kbdHint').classList.toggle('sm:block', tut);
+    $('#quizBtn').classList.toggle('hidden', !tut);
+    $('#quizBtn').setAttribute('aria-checked', state.quiz);
+    const sc = $('#quizScore');
+    sc.classList.toggle('hidden', !state.quiz); sc.textContent = `${state.score.r}/${state.score.t}`;
+    $('#stepLbl').textContent = `Step ${state.tStep + 1} / ${N()}`;
+    $('#progBar').style.width = ((state.tStep + 1) / N() * 100) + '%';
+    $('#bBack').disabled = state.tStep === 0 && !state.quizPending;
+    $('#bNext').disabled = state.tStep >= N() - 1;
+    $('#bNext').innerHTML = (state.quizPending ? 'Reveal' : 'Next') + ic('chevR');
+    $('#bPlay').innerHTML = state.playing ? ic('pause') + 'Pause' : ic('play') + 'Play';
+    $('#bPlay').setAttribute('aria-pressed', state.playing);
+    $('#bRun').disabled = !!state.eTimer;
+  }
+
+  function update() {
+    updateTree(); updateExplain(); updateRunningState(); updateStats(); updatePseudo(); updateControls();
+    if (state.popId != null) {
+      if (state.popId >= visibleCount()) closePop(); else positionPop();
+    }
+  }
+
+  /* ---------- Tutorial controls ---------- */
+  const delay = () => 1400 / state.speed;
+  function stopPlay() { clearInterval(state.timer); state.timer = null; state.playing = false; }
+  function startPlay() {
+    clearInterval(state.timer);
+    state.timer = setInterval(() => {
+      if (state.tStep < N() - 1) { state.tStep++; state.quizFeedback = null; }
+      if (state.tStep >= N() - 1) stopPlay();
+      update();
+    }, delay());
+    state.playing = true;
+  }
+  function togglePlay() {
+    if (state.playing) stopPlay();
+    else {
+      if (state.tStep >= N() - 1) state.tStep = 0;
+      state.quizPending = false; state.quizFeedback = null;
+      startPlay();
+    }
+    update();
+  }
+  function next() {
+    stopPlay();
+    if (state.quizPending) {
+      state.quizPending = false; state.tStep++;
+      state.quizFeedback = { skip: true, actual: state.nodes[state.tStep].status };
+    } else if (state.tStep < N() - 1) {
+      state.quizFeedback = null;
+      if (state.quiz) state.quizPending = true; else state.tStep++;
+    }
+    update();
+  }
+  function back() {
+    stopPlay(); state.quizFeedback = null;
+    if (state.quizPending) state.quizPending = false;
+    else if (state.tStep > 0) state.tStep--;
+    update();
+  }
+  function reset() { stopPlay(); state.tStep = 0; state.quizPending = false; state.quizFeedback = null; update(); }
+  function answer(g) {
+    if (!state.quizPending) return;
+    const actual = state.nodes[state.tStep + 1].status, ok = g === actual;
+    state.score.t++; if (ok) state.score.r++;
+    state.quizPending = false; state.tStep++;
+    state.quizFeedback = { ok, guess: g, actual };
+    update();
+  }
+
+  /* ---------- Execution controls ---------- */
+  function stopExec() { clearInterval(state.eTimer); state.eTimer = null; }
+  function runExec() {
+    stopExec(); closePop();
+    state.eStarted = true; state.eCount = 0; state.selected = null;
+    state.eTimer = setInterval(() => {
+      state.eCount++;
+      if (state.eCount >= N()) stopExec();
+      update();
+    }, 70 / state.speed);
+    update();
+  }
+  function showAll() { stopExec(); state.eStarted = true; state.eCount = N(); update(); }
+  function clearExec() { stopExec(); closePop(); state.eCount = 0; state.selected = null; update(); }
+
+  function setMode(m) {
+    if (m === state.mode) return;
+    stopPlay(); closePop();
+    if (state.eTimer) { stopExec(); state.eCount = N(); }
+    state.mode = m;
+    if (m === 'execution' && !state.eStarted) { runExec(); return; }
+    update();
+  }
+
+  /* ---------- Node popover ---------- */
+  function openPop(id) {
+    const n = state.nodes[id], pop = $('#popover');
+    state.popId = id;
+    const jump = state.mode === 'tutorial' && id !== state.tStep
+      ? `<button class="btn btn-outline mt-3 h-8 w-full text-xs" data-jump="${id}">Jump to this step (${id + 1})</button>` : '';
+    pop.innerHTML = `<button class="btn btn-ghost absolute right-2 top-2 h-7 w-7 px-0" data-close aria-label="Close details">${ic('x')}</button>
+      ${explainHTML(n, true)}
+      <div class="mt-3 grid grid-cols-3 gap-2 text-center">
+        <div class="tile p-2"><div class="lbl">s</div><div class="font-semibold tabular-nums">${n.s}</div></div>
+        <div class="tile p-2"><div class="lbl">M − s</div><div class="font-semibold tabular-nums ${state.M - n.s < 0 ? 'text-red-600 dark:text-red-400' : ''}">${state.M - n.s}</div></div>
+        <div class="tile p-2"><div class="lbl">subset</div><div class="truncate font-semibold">${fmtSet(subsetOf(n))}</div></div>
+      </div>${jump}`;
+    pop.classList.remove('hidden');
+    positionPop();
+    pop.querySelector('[data-close]').focus({ preventScroll: true });
+  }
+  function positionPop() {
+    const pop = $('#popover'), E = state.els[state.popId];
+    if (!E) return;
+    const wr = $('#canvasWrap').getBoundingClientRect(), br = E.box.getBoundingClientRect();
+    const pw = pop.offsetWidth, ph = pop.offsetHeight;
+    let left = br.left - wr.left + br.width / 2 - pw / 2;
+    left = Math.max(8, Math.min(left, wr.width - pw - 8));
+    let top = br.bottom - wr.top + 10;
+    if (top + ph > wr.height - 4) top = br.top - wr.top - ph - 10;
+    top = Math.max(8, top);
+    pop.style.left = left + 'px'; pop.style.top = top + 'px';
+  }
+  function closePop(refocus) {
+    const id = state.popId;
+    state.popId = null; $('#popover').classList.add('hidden');
+    if (refocus && id != null && state.els[id]) state.els[id].wrap.focus({ preventScroll: true });
+  }
+  function activateNode(id) {
+    if (state.mode === 'execution') { state.selected = id; update(); }
+    openPop(id);
+  }
+
+  /* ---------- Export ---------- */
+  function buildExportSVG() {
+    const P = pal(), src = $('#treeSvg').cloneNode(true);
+    src.querySelectorAll('.off').forEach(e => e.remove());
+    src.querySelectorAll('.ring').forEach(e => e.remove());
+    src.removeAttribute('style');
+    const W = state.W, H = state.H + 36, ns = 'http://www.w3.org/2000/svg';
+    src.setAttribute('viewBox', `0 0 ${W} ${H}`); src.setAttribute('width', W); src.setAttribute('height', H);
+    const g = document.createElementNS(ns, 'g'); g.setAttribute('transform', 'translate(0,36)');
+    while (src.firstChild) g.appendChild(src.firstChild);
+    const bg = document.createElementNS(ns, 'rect');
+    bg.setAttribute('width', W); bg.setAttribute('height', H); bg.setAttribute('fill', P.canvas);
+    const title = document.createElementNS(ns, 'text');
+    title.setAttribute('x', 16); title.setAttribute('y', 28); title.setAttribute('font-size', 14); title.setAttribute('font-weight', 600); title.setAttribute('fill', P.rowText);
+    const c = counts(visibleCount());
+    title.textContent = `Sum of Subsets: S = ${fmtSet(state.w)}, M = ${state.M}  ·  ${c.gen} generated, ${c.pruned} pruned, ${c.success} solution(s)`;
+    src.append(bg, title, g);
+    return new XMLSerializer().serializeToString(src);
+  }
+  function download(blob, name) {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  function exportSVG() { download(new Blob([buildExportSVG()], { type: 'image/svg+xml' }), 'subset-sum-tree.svg'); }
+  function exportPNG() {
+    const str = buildExportSVG(), url = URL.createObjectURL(new Blob([str], { type: 'image/svg+xml' }));
+    const img = new Image();
+    img.onload = () => {
+      const sc = 2, cv = document.createElement('canvas');
+      cv.width = state.W * sc; cv.height = (state.H + 36) * sc;
+      const ctx = cv.getContext('2d'); ctx.scale(sc, sc); ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      cv.toBlob(b => download(b, 'subset-sum-tree.png'), 'image/png');
+    };
+    img.src = url;
+  }
+
+  /* ---------- Build / input ---------- */
+  function rebuild() {
+    stopPlay(); stopExec(); closePop();
+    const t = buildTree(state.w, state.M);
+    state.nodes = t.nodes; state.leaves = t.leaves;
+    Object.assign(state, { tStep: 0, eCount: 0, selected: null, quizPending: false, quizFeedback: null, score: { r: 0, t: 0 } });
+    renderSVG();
+    $('#problemPill').textContent = `S = ${fmtSet(state.w)} · M = ${state.M}`;
+    $('#inSet').value = state.w.join(', '); $('#inM').value = state.M;
+    document.querySelector('[data-note="gen"]').textContent = N();
+    document.querySelector('[data-note="full"]').textContent = 2 ** (state.w.length + 1) - 1;
+    if (state.mode === 'execution') runExec(); else { state.eStarted = false; update(); }
+  }
+  function applyInput(e) {
+    e && e.preventDefault();
+    const err = $('#inErr');
+    const parts = $('#inSet').value.split(/[\s,{}]+/).filter(Boolean);
+    const w = parts.map(Number), M = Number($('#inM').value);
+    let msg = '';
+    if (!parts.length) msg = 'Enter at least one element.';
+    else if (parts.length > 6) msg = 'Use at most 6 elements so the tree stays readable (up to 127 nodes).';
+    else if (w.some(v => !Number.isInteger(v) || v < 1 || v > 999)) msg = 'Elements must be whole numbers between 1 and 999.';
+    else if (!Number.isInteger(M) || M < 1 || M > 9999) msg = 'Target M must be a whole number between 1 and 9999.';
+    err.textContent = msg; err.classList.toggle('hidden', !msg);
+    if (msg) return;
+    state.w = w; state.M = M; rebuild();
+  }
+
+  /* ---------- Theme ---------- */
+  function paintThemeBtn() {
+    const d = document.documentElement.classList.contains('dark');
+    $('#themeBtn').innerHTML = ic(d ? 'sun' : 'moon');
+    $('#themeBtn').setAttribute('aria-label', d ? 'Switch to light mode' : 'Switch to dark mode');
+  }
+
+  /* ---------- Events ---------- */
+  $('#tabTutorial').addEventListener('click', () => setMode('tutorial'));
+  $('#tabExec').addEventListener('click', () => setMode('execution'));
+  document.querySelector('[role="tablist"]').addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault(); e.stopPropagation();
+      const m = state.mode === 'tutorial' ? 'execution' : 'tutorial';
+      setMode(m); (m === 'tutorial' ? $('#tabTutorial') : $('#tabExec')).focus();
+    }
+  });
+  $('#bNext').addEventListener('click', next);
+  $('#bBack').addEventListener('click', back);
+  $('#bPlay').addEventListener('click', togglePlay);
+  $('#bReset').addEventListener('click', reset);
+  $('#bRun').addEventListener('click', runExec);
+  $('#bAll').addEventListener('click', showAll);
+  $('#bClear').addEventListener('click', clearExec);
+  $('#speed').addEventListener('input', e => {
+    state.speed = +e.target.value; $('#speedVal').textContent = state.speed + '×';
+    if (state.playing) startPlay();
+  });
+  $('#quizBtn').addEventListener('click', () => {
+    state.quiz = !state.quiz;
+    if (!state.quiz) state.quizPending = false;
+    if (state.quiz) stopPlay();
+    state.quizFeedback = null; update();
+  });
+  $('#explainCard').addEventListener('click', e => { const b = e.target.closest('[data-guess]'); if (b) answer(b.dataset.guess); });
+  $('#editBtn').addEventListener('click', () => {
+    const p = $('#inputPanel'), open = p.classList.toggle('hidden') === false;
+    $('#editBtn').setAttribute('aria-expanded', open);
+    if (open) $('#inSet').focus();
+  });
+  $('#inputForm').addEventListener('submit', applyInput);
+  document.querySelectorAll('[data-preset]').forEach(b => b.addEventListener('click', () => {
+    const [s, m] = b.dataset.preset.split('|'); $('#inSet').value = s.split(',').join(', '); $('#inM').value = m; applyInput();
+  }));
+  $('#expSvg').addEventListener('click', exportSVG);
+  $('#expPng').addEventListener('click', exportPNG);
+  $('#themeBtn').addEventListener('click', () => {
+    const d = document.documentElement.classList.toggle('dark');
+    try { localStorage.setItem('ssv-theme', d ? 'dark' : 'light'); } catch (e) {}
+    paintThemeBtn(); update();
+  });
+  $('#notesLink').addEventListener('click', () => { $('#notes').open = true; });
+
+  $('#svgHost').addEventListener('click', e => {
+    const w = e.target.closest('.nwrap');
+    if (w && !w.classList.contains('off')) { e.stopPropagation(); activateNode(+w.dataset.id); }
+  });
+  $('#popover').addEventListener('click', e => {
+    e.stopPropagation();
+    if (e.target.closest('[data-close]')) closePop(true);
+    const j = e.target.closest('[data-jump]');
+    if (j) { stopPlay(); state.quizPending = false; state.quizFeedback = null; state.tStep = +j.dataset.jump; closePop(); update(); }
+  });
+  document.addEventListener('click', e => { if (state.popId != null && !e.target.closest('#popover')) closePop(); });
+  $('#scroller').addEventListener('scroll', () => { if (state.popId != null) positionPop(); }, { passive: true });
+  window.addEventListener('resize', () => { if (state.popId != null) positionPop(); });
+
+  document.addEventListener('keydown', e => {
+    const t = e.target;
+    if (e.key === 'Escape' && state.popId != null) { closePop(true); return; }
+    const nodeEl = t.closest && t.closest('.nwrap');
+    if (nodeEl && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); activateNode(+nodeEl.dataset.id); return; }
+    if (/INPUT|TEXTAREA|SELECT/.test(t.tagName) || t.isContentEditable || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (state.mode !== 'tutorial') return;
+    if (e.key === 'ArrowRight') { e.preventDefault(); next(); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); back(); }
+    else if (e.key === 'Home') { e.preventDefault(); reset(); }
+    else if (e.key === ' ' && t.tagName !== 'BUTTON' && t.tagName !== 'SUMMARY') { e.preventDefault(); togglePlay(); }
+  });
+
+  /* ---------- Init ---------- */
+  paintThemeBtn();
+  rebuild();
+})();
+</script>
+</body>
+</html>
