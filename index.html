@@ -1,0 +1,1381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>N-Queens State Space Tree Visualizer</title>
+<!-- <link rel="stylesheet" href="style.css" /> -->
+ <style>
+  /* ============================================================
+   N-QUEENS STATE SPACE TREE VISUALIZER — STYLES
+   ============================================================ */
+
+:root {
+  --bg-deep: #0c0a1d;
+  --bg-mid: #14102b;
+  --bg-panel: rgba(30, 24, 58, 0.55);
+  --border-glass: rgba(255, 255, 255, 0.08);
+
+  --accent-purple: #a855f7;
+  --accent-pink: #ec4899;
+  --accent-cyan: #22d3ee;
+  --accent-blue: #38bdf8;
+  --accent-green: #34d399;
+  --accent-red: #f87171;
+  --accent-yellow: #fbbf24;
+  --accent-gray: #6b7280;
+
+  --text-main: #e9e6f7;
+  --text-dim: #a29fc0;
+
+  --radius-lg: 18px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+
+  --shadow-glow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: "Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
+  color: var(--text-main);
+  background:
+    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(168, 85, 247, 0.25), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(34, 211, 238, 0.15), transparent),
+    linear-gradient(180deg, var(--bg-deep) 0%, var(--bg-mid) 100%);
+  background-attachment: fixed;
+  line-height: 1.5;
+}
+
+/* ============ LAYOUT HELPERS ============ */
+
+.app-main {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px 28px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  padding: 22px 24px;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--shadow-glow);
+}
+
+.panel h2 {
+  margin: 0 0 14px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: var(--text-main);
+}
+
+.viz-row {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap: 22px;
+  align-items: start;
+}
+
+/* ============ HEADER ============ */
+
+.app-header {
+  padding: 34px 28px 18px;
+  text-align: center;
+}
+select option {
+  background-color: #1a1330;
+  color: #e9e6f7;
+  padding: 8px 10px;
+}
+
+select option:checked,
+select option:hover {
+  background-color: var(--accent-purple);
+  color: #ffffff;
+}
+
+.header-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.title-block h1 {
+  margin: 0;
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 800;
+  background: linear-gradient(100deg, var(--accent-purple), var(--accent-pink) 55%, var(--accent-cyan));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  color: var(--text-dim);
+  font-size: 0.98rem;
+}
+
+.badge {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #1a0e2e;
+  background: linear-gradient(100deg, var(--accent-cyan), var(--accent-purple));
+  box-shadow: 0 4px 18px rgba(168, 85, 247, 0.35);
+}
+
+/* ============ CONTROL PANEL ============ */
+
+.control-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 22px;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.control-group label {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+select {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-main);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  font-size: 0.9rem;
+  min-width: 130px;
+}
+
+.buttons-group {
+  flex-direction: row;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 10px 18px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  color: #0e0a1f;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.btn:hover:not(:disabled) { transform: translateY(-2px); }
+.btn:active:not(:disabled) { transform: translateY(0); }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-start { background: linear-gradient(100deg, var(--accent-green), var(--accent-cyan)); }
+.btn-pause { background: linear-gradient(100deg, var(--accent-yellow), var(--accent-pink)); }
+.btn-next  { background: linear-gradient(100deg, var(--accent-blue), var(--accent-purple)); color: #fff; }
+.btn-reset { background: linear-gradient(100deg, var(--accent-red), var(--accent-pink)); color: #fff; }
+
+/* ============ STATUS BAR ============ */
+
+.status-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-glass);
+  flex-wrap: wrap;
+}
+
+.status-message {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--accent-cyan);
+  transition: color 0.2s ease;
+}
+
+.status-message.error { color: var(--accent-red); }
+.status-message.success { color: var(--accent-green); }
+.status-message.back { color: var(--accent-yellow); }
+
+.step-counter {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============ CHESSBOARD ============ */
+
+.board-panel { display: flex; flex-direction: column; }
+
+.chessboard {
+  display: grid;
+  gap: 2px;
+  margin: 6px auto;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 8px;
+  border-radius: var(--radius-md);
+  width: fit-content;
+}
+
+.cell {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.7rem;
+  border-radius: 4px;
+  position: relative;
+  transition: background 0.25s ease, box-shadow 0.25s ease;
+}
+
+.cell.light { background: rgba(255, 255, 255, 0.09); }
+.cell.dark { background: rgba(0, 0, 0, 0.28); }
+
+.cell.row-active { box-shadow: inset 0 0 0 2px var(--accent-cyan); }
+.cell.col-try { box-shadow: inset 0 0 0 2px var(--accent-yellow); }
+.cell.cell-conflict {
+  background: rgba(248, 113, 113, 0.45) !important;
+  box-shadow: inset 0 0 0 2px var(--accent-red);
+}
+
+.queen {
+  background: linear-gradient(160deg, var(--accent-pink), var(--accent-purple));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 6px rgba(236, 72, 153, 0.6));
+  animation: queenPop 0.35s ease;
+}
+
+@keyframes queenPop {
+  0% { transform: scale(0.2) rotate(-15deg); opacity: 0; }
+  70% { transform: scale(1.15) rotate(4deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+.queen.removing {
+  animation: queenPop 0.25s ease reverse;
+}
+
+.legend-mini {
+  display: flex;
+  gap: 16px;
+  margin-top: 10px;
+  font-size: 0.76rem;
+  color: var(--text-dim);
+  justify-content: center;
+}
+
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+.dot-current { background: var(--accent-cyan); }
+.dot-invalid { background: var(--accent-red); }
+
+/* ============ TREE ============ */
+
+.tree-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.legend-inline {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 0.74rem;
+  color: var(--text-dim);
+}
+
+.legend-inline span { display: flex; align-items: center; gap: 4px; }
+
+.node-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.node-dot.valid { background: var(--accent-green); }
+.node-dot.invalid { background: var(--accent-red); }
+.node-dot.exploring { background: var(--accent-yellow); }
+.node-dot.solution { background: var(--accent-cyan); }
+.node-dot.unexplored { background: var(--accent-gray); }
+
+.tree-scroll {
+  position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-height: 480px;
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.25);
+  padding: 20px 10px;
+}
+
+.tree-container {
+  position: relative;
+  min-height: 380px;
+}
+
+.tree-lines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.tree-node {
+  position: absolute;
+  width: 78px;
+  min-height: 46px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border-glass);
+  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+  transform: scale(0.5);
+  opacity: 0;
+}
+
+.tree-node.appear { transform: scale(1); opacity: 1; }
+
+.tree-node:hover { transform: scale(1.08); z-index: 5; }
+
+.tree-node .n-label { font-size: 0.72rem; }
+.tree-node .n-state { font-size: 0.6rem; opacity: 0.8; margin-top: 2px; }
+
+.tree-node.unexplored { border-color: var(--accent-gray); color: var(--text-dim); }
+
+.tree-node.exploring {
+  border-color: var(--accent-yellow);
+  background: rgba(251, 191, 36, 0.18);
+  color: var(--accent-yellow);
+  box-shadow: 0 0 16px rgba(251, 191, 36, 0.55);
+  animation: pulseGlow 0.9s ease-in-out infinite;
+}
+
+.tree-node.valid {
+  border-color: var(--accent-green);
+  background: rgba(52, 211, 153, 0.15);
+  color: var(--accent-green);
+}
+
+.tree-node.invalid {
+  border-color: var(--accent-red);
+  background: rgba(248, 113, 113, 0.15);
+  color: var(--accent-red);
+}
+
+.tree-node.solution {
+  border-color: var(--accent-cyan);
+  background: rgba(34, 211, 238, 0.22);
+  color: var(--accent-cyan);
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.55);
+}
+
+.tree-node.root {
+  border-color: var(--accent-purple);
+  background: rgba(168, 85, 247, 0.2);
+  color: var(--accent-purple);
+  font-weight: 800;
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 10px rgba(251, 191, 36, 0.4); }
+  50% { box-shadow: 0 0 22px rgba(251, 191, 36, 0.85); }
+}
+
+.tree-edge {
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-width: 1.6;
+  fill: none;
+  transition: stroke 0.2s ease;
+}
+
+.tree-edge.lit { stroke: var(--accent-cyan); stroke-width: 2.2; }
+
+/* ============ NODE DETAILS ============ */
+
+.node-details-body { font-size: 0.88rem; }
+.node-details-body .hint { color: var(--text-dim); }
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--border-glass);
+}
+
+.detail-row span:first-child { color: var(--text-dim); }
+.detail-row span:last-child { font-weight: 700; }
+
+.detail-status.valid { color: var(--accent-green); }
+.detail-status.invalid { color: var(--accent-red); }
+.detail-status.solution { color: var(--accent-cyan); }
+
+.detail-reason {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  border-left: 3px solid var(--accent-purple);
+}
+
+/* ============ STATS ============ */
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.stat-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-label { font-size: 0.72rem; color: var(--text-dim); font-weight: 600; }
+.stat-value { font-size: 1.5rem; font-weight: 800; color: var(--text-main); font-variant-numeric: tabular-nums; }
+
+.stat-card.valid .stat-value { color: var(--accent-green); }
+.stat-card.invalid .stat-value { color: var(--accent-red); }
+.stat-card.backtrack .stat-value { color: var(--accent-yellow); }
+.stat-card.solution .stat-value { color: var(--accent-cyan); }
+
+/* ============ SOLUTIONS ============ */
+
+.solution-switcher {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 10px 0;
+}
+
+.solution-chip {
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-glass);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.solution-chip.active {
+  background: linear-gradient(100deg, var(--accent-cyan), var(--accent-purple));
+  color: #0e0a1f;
+  border-color: transparent;
+}
+
+.solution-board-wrap {
+  display: flex;
+  justify-content: center;
+  animation: celebrate 0.5s ease;
+}
+
+@keyframes celebrate {
+  0% { transform: scale(0.85); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.solution-array {
+  text-align: center;
+  margin-top: 10px;
+  font-size: 0.85rem;
+  color: var(--accent-cyan);
+  font-weight: 700;
+}
+
+/* ============ EXPLANATION ============ */
+
+.explanation-list {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-dim);
+  font-size: 0.92rem;
+}
+
+.explanation-list li { margin-bottom: 6px; }
+
+.safety-box {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: rgba(168, 85, 247, 0.1);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  font-size: 0.88rem;
+}
+
+.safety-box ul { margin: 8px 0 0; padding-left: 20px; color: var(--text-dim); }
+
+/* ============ CODE / COMPLEXITY ============ */
+
+.code-block {
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  overflow-x: auto;
+  font-family: "Fira Code", "Consolas", monospace;
+  font-size: 0.82rem;
+  color: #b9f5d0;
+  line-height: 1.6;
+  border-left: 3px solid var(--accent-green);
+}
+
+.complexity-card { font-size: 0.9rem; }
+
+.complexity-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--border-glass);
+}
+
+.complexity-row strong { color: var(--accent-cyan); }
+
+.complexity-note {
+  margin-top: 12px;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+/* ============ LEGEND PANEL ============ */
+
+.legend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  font-size: 0.88rem;
+  color: var(--text-dim);
+}
+
+.legend-grid div { display: flex; align-items: center; gap: 8px; }
+
+/* ============ FOOTER ============ */
+
+.app-footer {
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  padding: 10px 0 4px;
+}
+
+/* ============ RESPONSIVE ============ */
+
+@media (max-width: 980px) {
+  .viz-row { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 560px) {
+  .cell { width: 42px; height: 42px; font-size: 1.3rem; }
+  .app-main { padding: 16px 14px 40px; }
+  .control-panel { gap: 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+ </style>
+</head>
+<body>
+
+  <!-- ============ HEADER ============ -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="title-block">
+        <h1>♛ N-Queens State Space Tree</h1>
+        <p class="subtitle">Explore Backtracking • Visualize Decisions • Understand Recursion</p>
+      </div>
+      <span class="badge">BACKTRACKING ALGORITHM</span>
+    </div>
+  </header>
+
+  <main class="app-main">
+
+    <!-- ============ CONTROL PANEL ============ -->
+    <section class="panel control-panel">
+      <div class="control-group">
+        <label for="nSelect">N Value</label>
+        <select id="nSelect">
+          <option value="4" selected>N = 4</option>
+          <option value="5">N = 5</option>
+          <option value="6">N = 6</option>
+          <option value="7">N = 7</option>
+          <option value="8">N = 8</option>
+        </select>
+      </div>
+
+      <div class="control-group buttons-group">
+        <button id="btnStart" class="btn btn-start">▶ Start</button>
+        <button id="btnPause" class="btn btn-pause" disabled>⏸ Pause</button>
+        <button id="btnNext" class="btn btn-next">⏭ Next Step</button>
+        <button id="btnReset" class="btn btn-reset">🔄 Reset</button>
+      </div>
+
+      <div class="control-group">
+        <label for="speedSelect">Animation Speed</label>
+        <select id="speedSelect">
+          <option value="slow">Slow</option>
+          <option value="medium" selected>Medium</option>
+          <option value="fast">Fast</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- ============ STATUS BAR ============ -->
+    <section class="status-bar">
+      <div class="status-message" id="statusMessage">Press Start to explore the N-Queens state-space tree.</div>
+      <div class="step-counter" id="stepCounter">Step 0 / 0</div>
+    </section>
+
+    <!-- ============ BOARD + TREE ROW ============ -->
+    <section class="viz-row">
+
+      <!-- ---- CHESSBOARD CARD ---- -->
+      <div class="panel board-panel">
+        <h2>Chessboard</h2>
+        <div id="chessboard" class="chessboard"></div>
+        <div class="legend-mini">
+          <span><i class="dot dot-current"></i> Current Row</span>
+          <span><i class="dot dot-invalid"></i> Conflict</span>
+        </div>
+      </div>
+
+      <!-- ---- STATE SPACE TREE CARD ---- -->
+      <div class="panel tree-panel">
+        <div class="tree-panel-head">
+          <h2>State Space Tree</h2>
+          <div class="legend-inline">
+            <span><i class="node-dot valid"></i>Valid</span>
+            <span><i class="node-dot invalid"></i>Invalid</span>
+            <span><i class="node-dot exploring"></i>Exploring</span>
+            <span><i class="node-dot solution"></i>Solution</span>
+            <span><i class="node-dot unexplored"></i>Unexplored</span>
+          </div>
+        </div>
+        <div id="treeScroll" class="tree-scroll">
+          <svg id="treeLines" class="tree-lines"></svg>
+          <div id="treeContainer" class="tree-container"></div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ============ NODE DETAILS + STATS ROW ============ -->
+    <section class="viz-row">
+
+      <div class="panel details-panel">
+        <h2>Node Details</h2>
+        <div id="nodeDetails" class="node-details-body">
+          <p class="hint">Click any node in the tree to inspect it.</p>
+        </div>
+      </div>
+
+      <div class="panel stats-panel">
+        <h2>Statistics</h2>
+        <div class="stats-grid">
+          <div class="stat-card"><span class="stat-label">Nodes Explored</span><span class="stat-value" id="statNodes">0</span></div>
+          <div class="stat-card valid"><span class="stat-label">Valid Placements</span><span class="stat-value" id="statValid">0</span></div>
+          <div class="stat-card invalid"><span class="stat-label">Invalid Placements</span><span class="stat-value" id="statInvalid">0</span></div>
+          <div class="stat-card backtrack"><span class="stat-label">Backtracks</span><span class="stat-value" id="statBacktracks">0</span></div>
+          <div class="stat-card solution"><span class="stat-label">Solutions Found</span><span class="stat-value" id="statSolutions">0</span></div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ============ SOLUTIONS ============ -->
+    <section class="panel solutions-panel">
+      <h2>🎉 Solutions</h2>
+      <div id="solutionsEmpty" class="hint">No solutions found yet — start the algorithm to discover them.</div>
+      <div id="solutionSwitcher" class="solution-switcher"></div>
+      <div id="solutionBoardWrap" class="solution-board-wrap"></div>
+    </section>
+
+    <!-- ============ EXPLANATION ============ -->
+    <section class="panel explanation-panel">
+      <h2>How N-Queens Backtracking Works</h2>
+      <ol class="explanation-list">
+        <li>Start from the first row.</li>
+        <li>Try placing a queen in each column.</li>
+        <li>Check whether the position is safe.</li>
+        <li>If safe, move to the next row.</li>
+        <li>If no position is possible, backtrack.</li>
+        <li>Remove the previous queen.</li>
+        <li>Try another position.</li>
+        <li>Continue until all queens are placed.</li>
+      </ol>
+      <div class="safety-box">
+        <strong>A queen cannot share:</strong>
+        <ul>
+          <li>Same row</li>
+          <li>Same column</li>
+          <li>Same diagonal</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============ PSEUDOCODE + COMPLEXITY ============ -->
+    <section class="viz-row">
+      <div class="panel code-panel">
+        <h2>Pseudocode</h2>
+        <pre class="code-block"><code>function solve(row):
+
+    if row == N:
+        record solution
+        return
+
+    for col = 0 to N-1:
+
+        if position is safe:
+
+            place queen
+
+            solve(row + 1)
+
+            remove queen</code></pre>
+      </div>
+
+      <div class="panel complexity-panel">
+        <h2>Complexity</h2>
+        <div class="complexity-card">
+          <div class="complexity-row"><span>Time Complexity</span><strong>O(N!)</strong></div>
+          <div class="complexity-row"><span>Space Complexity</span><strong>O(N)</strong></div>
+          <p class="complexity-note">
+            Backtracking abandons a partial placement the moment it conflicts with an
+            earlier queen, so entire branches of the search space are skipped instead
+            of being generated and checked. This prunes the tree far below the
+            N<sup>N</sup> or N! arrangements a brute-force search would examine.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ LEGEND ============ -->
+    <section class="panel legend-panel">
+      <h2>Legend</h2>
+      <div class="legend-grid">
+        <div><i class="node-dot valid"></i> Valid</div>
+        <div><i class="node-dot invalid"></i> Invalid</div>
+        <div><i class="node-dot exploring"></i> Currently Exploring</div>
+        <div><i class="node-dot solution"></i> Solution Path</div>
+        <div><i class="node-dot unexplored"></i> Unexplored</div>
+      </div>
+    </section>
+
+    <footer class="app-footer">
+      <p>DAA / Algorithms Mini-Project &mdash; N-Queens Backtracking Visualization</p>
+    </footer>
+
+  </main>
+
+  <script>
+    /* ============================================================
+   N-QUEENS STATE SPACE TREE VISUALIZER — LOGIC
+   Every node, edge and statistic below comes from an actual
+   run of the backtracking algorithm. Nothing is hard-coded.
+   ============================================================ */
+
+/* ---------- DOM REFERENCES ---------- */
+const el = {
+  nSelect: document.getElementById('nSelect'),
+  speedSelect: document.getElementById('speedSelect'),
+  btnStart: document.getElementById('btnStart'),
+  btnPause: document.getElementById('btnPause'),
+  btnNext: document.getElementById('btnNext'),
+  btnReset: document.getElementById('btnReset'),
+  statusMessage: document.getElementById('statusMessage'),
+  stepCounter: document.getElementById('stepCounter'),
+  chessboard: document.getElementById('chessboard'),
+  treeContainer: document.getElementById('treeContainer'),
+  treeLines: document.getElementById('treeLines'),
+  treeScroll: document.getElementById('treeScroll'),
+  nodeDetails: document.getElementById('nodeDetails'),
+  statNodes: document.getElementById('statNodes'),
+  statValid: document.getElementById('statValid'),
+  statInvalid: document.getElementById('statInvalid'),
+  statBacktracks: document.getElementById('statBacktracks'),
+  statSolutions: document.getElementById('statSolutions'),
+  solutionsEmpty: document.getElementById('solutionsEmpty'),
+  solutionSwitcher: document.getElementById('solutionSwitcher'),
+  solutionBoardWrap: document.getElementById('solutionBoardWrap'),
+};
+
+/* ---------- GLOBAL STATE ---------- */
+const ROOT_ID = 'root';
+const NODE_W = 78;
+const NODE_H = 46;
+const NODE_SPACING_X = 92;
+const ROW_HEIGHT = 92;
+
+let N = 4;
+let treeNodes = {};        // id -> {id, parentId, row, col, state, children}
+let nodeStatus = {};       // id -> 'unexplored' | 'exploring' | 'valid' | 'invalid' | 'solution'
+let steps = [];            // ordered list of algorithm actions
+let currentStepIndex = -1;
+let displayState = [];     // current column of the queen in each row, -1 if empty
+let stats = { nodesExplored: 0, validPlacements: 0, invalidPlacements: 0, backtracks: 0, solutionsFound: 0 };
+let solutions = [];        // { state:[...], path:[nodeIds] }
+let selectedSolutionIndex = -1;
+let playing = false;
+let playTimer = null;
+let layoutPositions = {};
+
+const SPEED_MS = { slow: 900, medium: 450, fast: 180 };
+
+/* ============================================================
+   ALGORITHM: real backtracking, generates the full tree + trace
+   ============================================================ */
+
+function isSafe(state, row, col) {
+  for (let r = 0; r < row; r++) {
+    const c = state[r];
+    if (c === col) return { safe: false, type: 'column', conflictRow: r };
+    if (Math.abs(c - col) === Math.abs(r - row)) return { safe: false, type: 'diagonal', conflictRow: r };
+  }
+  return { safe: true };
+}
+
+function createTreeNode(id, parentId, row, col, state) {
+  const node = { id, parentId, row, col, state: state.slice(), children: [] };
+  treeNodes[id] = node;
+  treeNodes[parentId].children.push(id);
+  return node;
+}
+
+function solveNQueens(n) {
+  treeNodes = {};
+  steps = [];
+  let idCounter = 0;
+
+  treeNodes[ROOT_ID] = { id: ROOT_ID, parentId: null, row: -1, col: -1, state: [], children: [] };
+
+  function recurse(row, state, parentId, path) {
+    if (row === n) {
+      steps.push({ type: 'solution', state: state.slice(), path: path.slice() });
+      return;
+    }
+    for (let col = 0; col < n; col++) {
+      idCounter++;
+      const nodeId = 'n' + idCounter;
+      const check = isSafe(state, row, col);
+      createTreeNode(nodeId, parentId, row, col, state.concat([col]));
+
+      steps.push({ type: 'try', nodeId, row, col });
+
+      if (check.safe) {
+        steps.push({ type: 'valid', nodeId, row, col });
+        recurse(row + 1, state.concat([col]), nodeId, path.concat([nodeId]));
+        steps.push({ type: 'backtrack', nodeId, row, col });
+      } else {
+        steps.push({ type: 'invalid', nodeId, row, col, reason: check });
+      }
+    }
+  }
+
+  recurse(0, [], ROOT_ID, []);
+}
+
+/* ============================================================
+   TREE LAYOUT (simple tidy-tree: leaves get sequential slots,
+   parents are centered above their children)
+   ============================================================ */
+
+function layoutTree() {
+  layoutPositions = {};
+  let xCounter = 0;
+
+  function assign(nodeId) {
+    const node = treeNodes[nodeId];
+    if (node.children.length === 0) {
+      const x = xCounter * NODE_SPACING_X;
+      layoutPositions[nodeId] = { x, y: (node.row + 1) * ROW_HEIGHT };
+      xCounter++;
+      return x;
+    }
+    const childXs = node.children.map(assign);
+    const myX = (childXs[0] + childXs[childXs.length - 1]) / 2;
+    layoutPositions[nodeId] = { x: myX, y: (node.row + 1) * ROW_HEIGHT };
+    return myX;
+  }
+
+  assign(ROOT_ID);
+
+  const width = Math.max(xCounter * NODE_SPACING_X + 80, 400);
+  const height = (N + 2) * ROW_HEIGHT;
+  return { width, height };
+}
+
+/* ============================================================
+   RENDERING: TREE
+   ============================================================ */
+
+function renderTree() {
+  el.treeContainer.innerHTML = '';
+  el.treeLines.innerHTML = '';
+
+  const { width, height } = layoutTree();
+  el.treeContainer.style.width = width + 'px';
+  el.treeContainer.style.height = height + 'px';
+  el.treeLines.setAttribute('width', width);
+  el.treeLines.setAttribute('height', height);
+  el.treeLines.style.width = width + 'px';
+  el.treeLines.style.height = height + 'px';
+
+  // draw edges first (so nodes sit above them)
+  Object.values(treeNodes).forEach(node => {
+    if (!node.parentId) return;
+    const p = layoutPositions[node.parentId];
+    const c = layoutPositions[node.id];
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', p.x + 20 + NODE_W / 2);
+    line.setAttribute('y1', p.y + 10 + NODE_H);
+    line.setAttribute('x2', c.x + 20 + NODE_W / 2);
+    line.setAttribute('y2', c.y + 10);
+    line.setAttribute('class', 'tree-edge');
+    line.id = 'edge-' + node.id;
+    el.treeLines.appendChild(line);
+  });
+
+  // draw nodes
+  Object.values(treeNodes).forEach(node => {
+    const pos = layoutPositions[node.id];
+    const div = document.createElement('div');
+    const status = nodeStatus[node.id] || (node.id === ROOT_ID ? 'root' : 'unexplored');
+    div.className = 'tree-node ' + status;
+    div.id = 'node-' + node.id;
+    div.style.left = (pos.x + 20) + 'px';
+    div.style.top = (pos.y + 10) + 'px';
+
+    if (node.id === ROOT_ID) {
+      div.innerHTML = `<span class="n-label">Start</span>`;
+    } else {
+      const stateStr = '[' + node.state.map(c => c + 1).join(',') + ']';
+      div.innerHTML = `<span class="n-label">R${node.row + 1}C${node.col + 1}</span><span class="n-state">${stateStr}</span>`;
+    }
+
+    div.addEventListener('click', () => showNodeDetails(node.id));
+    el.treeContainer.appendChild(div);
+    requestAnimationFrame(() => div.classList.add('appear'));
+  });
+}
+
+function updateNodeVisual(nodeId) {
+  const div = document.getElementById('node-' + nodeId);
+  if (!div) return;
+  const status = nodeStatus[nodeId] || 'unexplored';
+  div.className = 'tree-node appear ' + status;
+}
+
+function updateEdgeColor(nodeId) {
+  const edge = document.getElementById('edge-' + nodeId);
+  if (!edge) return;
+  const status = nodeStatus[nodeId];
+  if (status === 'valid' || status === 'solution') edge.classList.add('lit');
+}
+
+function markSolutionPath(path) {
+  path.forEach(id => {
+    nodeStatus[id] = 'solution';
+    updateNodeVisual(id);
+    updateEdgeColor(id);
+  });
+}
+
+/* ============================================================
+   RENDERING: NODE DETAILS PANEL
+   ============================================================ */
+
+function showNodeDetails(nodeId) {
+  const node = treeNodes[nodeId];
+  const status = nodeStatus[nodeId] || (nodeId === ROOT_ID ? 'root' : 'unexplored');
+
+  if (nodeId === ROOT_ID) {
+    el.nodeDetails.innerHTML = `
+      <div class="detail-row"><span>Node</span><span>Start</span></div>
+      <div class="detail-row"><span>Status</span><span>Root of search tree</span></div>
+      <div class="detail-reason">This is the empty board before any queen has been placed.</div>`;
+    return;
+  }
+
+  const stateStr = '[' + node.state.map(c => c + 1).join(', ') + ']';
+  const statusLabel = { valid: 'Valid', invalid: 'Invalid', solution: 'Solution', exploring: 'Exploring', unexplored: 'Not yet explored' }[status] || status;
+
+  let reasonHtml = '';
+  if (status === 'invalid') {
+    // find the step that recorded this node's invalid reason
+    const step = steps.find(s => s.nodeId === nodeId && s.type === 'invalid');
+    if (step) {
+      const kind = step.reason.type === 'column'
+        ? `Queen conflicts with the queen placed in Row ${step.reason.conflictRow + 1} (same column).`
+        : `Diagonal conflict detected with the queen placed in Row ${step.reason.conflictRow + 1}.`;
+      reasonHtml = `<div class="detail-reason">${kind}</div>`;
+    }
+  } else if (status === 'solution') {
+    reasonHtml = `<div class="detail-reason">This placement is part of a complete, valid N-Queens solution.</div>`;
+  } else if (status === 'valid') {
+    reasonHtml = `<div class="detail-reason">No column or diagonal conflicts with any previously placed queen.</div>`;
+  } else if (status === 'unexplored') {
+    reasonHtml = `<div class="detail-reason">The algorithm has not reached this branch yet.</div>`;
+  }
+
+  el.nodeDetails.innerHTML = `
+    <div class="detail-row"><span>Row</span><span>${node.row + 1}</span></div>
+    <div class="detail-row"><span>Column</span><span>${node.col + 1}</span></div>
+    <div class="detail-row"><span>Current State</span><span>${stateStr}</span></div>
+    <div class="detail-row"><span>Status</span><span class="detail-status ${status}">${statusLabel}</span></div>
+    ${reasonHtml}`;
+}
+
+/* ============================================================
+   RENDERING: CHESSBOARD
+   ============================================================ */
+
+function buildBoardGrid(n) {
+  el.chessboard.innerHTML = '';
+  el.chessboard.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+      cell.id = `cell-${r}-${c}`;
+      el.chessboard.appendChild(cell);
+    }
+  }
+}
+
+function updateBoard() {
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      const cell = document.getElementById(`cell-${r}-${c}`);
+      cell.innerHTML = '';
+    }
+  }
+  for (let r = 0; r < N; r++) {
+    const c = displayState[r];
+    if (c !== -1 && c !== undefined) {
+      const cell = document.getElementById(`cell-${r}-${c}`);
+      const q = document.createElement('span');
+      q.className = 'queen';
+      q.textContent = '♛';
+      cell.appendChild(q);
+    }
+  }
+}
+
+function placeQueen(row, col) {
+  displayState[row] = col;
+  updateBoard();
+  clearRowColHighlights();
+  document.getElementById(`cell-${row}-${col}`).classList.add('row-active');
+}
+
+function removeQueen(row) {
+  displayState[row] = -1;
+  updateBoard();
+}
+
+function clearRowColHighlights() {
+  document.querySelectorAll('.cell').forEach(c => c.classList.remove('row-active', 'col-try', 'cell-conflict'));
+}
+
+function highlightTryCell(row, col) {
+  clearRowColHighlights();
+  const cell = document.getElementById(`cell-${row}-${col}`);
+  cell.classList.add('col-try');
+  for (let r = 0; r < row; r++) {
+    if (displayState[r] !== -1 && displayState[r] !== undefined) {
+      document.getElementById(`cell-${r}-${displayState[r]}`).classList.add('row-active');
+    }
+  }
+}
+
+function flashConflictCell(row, col) {
+  const cell = document.getElementById(`cell-${row}-${col}`);
+  cell.classList.add('cell-conflict');
+  setTimeout(() => cell.classList.remove('cell-conflict'), 480);
+}
+
+/* ============================================================
+   STATS
+   ============================================================ */
+
+function updateStats() {
+  el.statNodes.textContent = stats.nodesExplored;
+  el.statValid.textContent = stats.validPlacements;
+  el.statInvalid.textContent = stats.invalidPlacements;
+  el.statBacktracks.textContent = stats.backtracks;
+  el.statSolutions.textContent = stats.solutionsFound;
+}
+
+/* ============================================================
+   SOLUTIONS PANEL
+   ============================================================ */
+
+function renderSolutionSwitcher() {
+  el.solutionSwitcher.innerHTML = '';
+  solutions.forEach((sol, i) => {
+    const chip = document.createElement('button');
+    chip.className = 'solution-chip' + (i === selectedSolutionIndex ? ' active' : '');
+    chip.textContent = 'Solution ' + (i + 1);
+    chip.addEventListener('click', () => showSolution(i));
+    el.solutionSwitcher.appendChild(chip);
+  });
+}
+
+function showSolution(index) {
+  if (index < 0 || index >= solutions.length) return;
+  selectedSolutionIndex = index;
+  renderSolutionSwitcher();
+
+  const sol = solutions[index];
+  el.solutionBoardWrap.innerHTML = '';
+
+  const wrap = document.createElement('div');
+  const mini = document.createElement('div');
+  mini.className = 'chessboard';
+  mini.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+      if (sol.state[r] === c) {
+        const q = document.createElement('span');
+        q.className = 'queen';
+        q.textContent = '♛';
+        cell.appendChild(q);
+      }
+      mini.appendChild(cell);
+    }
+  }
+  wrap.appendChild(mini);
+  const label = document.createElement('div');
+  label.className = 'solution-array';
+  label.textContent = 'Solution ' + (index + 1) + ':  [' + sol.state.map(c => c + 1).join(', ') + ']';
+  wrap.appendChild(label);
+  el.solutionBoardWrap.appendChild(wrap);
+}
+
+function renderSolutions() {
+  if (solutions.length === 0) {
+    el.solutionsEmpty.style.display = 'block';
+    el.solutionSwitcher.innerHTML = '';
+    el.solutionBoardWrap.innerHTML = '';
+    return;
+  }
+  el.solutionsEmpty.style.display = 'none';
+  renderSolutionSwitcher();
+  showSolution(solutions.length - 1);
+}
+
+/* ============================================================
+   STATUS BAR
+   ============================================================ */
+
+function setStatus(msg, kind) {
+  el.statusMessage.textContent = msg;
+  el.statusMessage.className = 'status-message' + (kind ? ' ' + kind : '');
+}
+
+function updateStepCounter() {
+  el.stepCounter.textContent = `Step ${Math.max(currentStepIndex + 1, 0)} / ${steps.length}`;
+}
+
+/* ============================================================
+   STEP EXECUTION
+   ============================================================ */
+
+function processStep(step) {
+  switch (step.type) {
+    case 'try': {
+      nodeStatus[step.nodeId] = 'exploring';
+      updateNodeVisual(step.nodeId);
+      highlightTryCell(step.row, step.col);
+      setStatus(`Trying Row ${step.row + 1}, Column ${step.col + 1}...`, 'try');
+      stats.nodesExplored++;
+      break;
+    }
+    case 'valid': {
+      nodeStatus[step.nodeId] = 'valid';
+      updateNodeVisual(step.nodeId);
+      updateEdgeColor(step.nodeId);
+      placeQueen(step.row, step.col);
+      setStatus(`✓ Valid! Queen placed at Row ${step.row + 1}, Column ${step.col + 1}`, 'success');
+      stats.validPlacements++;
+      break;
+    }
+    case 'invalid': {
+      nodeStatus[step.nodeId] = 'invalid';
+      updateNodeVisual(step.nodeId);
+      updateEdgeColor(step.nodeId);
+      flashConflictCell(step.row, step.col);
+      const kind = step.reason.type === 'column' ? 'column' : 'diagonal';
+      setStatus(`❌ Invalid placement — ${kind} conflict`, 'error');
+      stats.invalidPlacements++;
+      break;
+    }
+    case 'backtrack': {
+      removeQueen(step.row);
+      setStatus(`↩ Backtracking to Row ${step.row}...`, 'back');
+      stats.backtracks++;
+      break;
+    }
+    case 'solution': {
+      solutions.push({ state: step.state.slice(), path: step.path.slice() });
+      markSolutionPath(step.path);
+      stats.solutionsFound++;
+      setStatus('🎉 Solution Found!', 'success');
+      renderSolutions();
+      break;
+    }
+  }
+  updateStats();
+  updateStepCounter();
+}
+
+function nextStep() {
+  if (currentStepIndex >= steps.length - 1) {
+    finishRun();
+    return;
+  }
+  currentStepIndex++;
+  processStep(steps[currentStepIndex]);
+
+  if (currentStepIndex >= steps.length - 1) {
+    finishRun();
+  }
+}
+
+function finishRun() {
+  pauseAnimation();
+  clearRowColHighlights();
+  el.btnStart.disabled = true;
+  el.btnNext.disabled = true;
+  setStatus(`✅ Search complete — ${stats.solutionsFound} solution(s) found for N = ${N}.`, 'success');
+}
+
+/* ============================================================
+   PLAYBACK CONTROLS
+   ============================================================ */
+
+function startAnimation() {
+  if (playing) return;
+  playing = true;
+  el.btnStart.disabled = true;
+  el.btnPause.disabled = false;
+  const speed = SPEED_MS[el.speedSelect.value] || SPEED_MS.medium;
+  playTimer = setInterval(() => {
+    if (currentStepIndex >= steps.length - 1) {
+      finishRun();
+      return;
+    }
+    nextStep();
+  }, speed);
+}
+
+function pauseAnimation() {
+  playing = false;
+  clearInterval(playTimer);
+  playTimer = null;
+  el.btnPause.disabled = true;
+  if (currentStepIndex < steps.length - 1) el.btnStart.disabled = false;
+}
+
+function resetVisualization() {
+  pauseAnimation();
+  N = parseInt(el.nSelect.value, 10);
+
+  nodeStatus = {};
+  currentStepIndex = -1;
+  displayState = new Array(N).fill(-1);
+  stats = { nodesExplored: 0, validPlacements: 0, invalidPlacements: 0, backtracks: 0, solutionsFound: 0 };
+  solutions = [];
+  selectedSolutionIndex = -1;
+
+  solveNQueens(N);
+  nodeStatus[ROOT_ID] = 'root';
+
+  buildBoardGrid(N);
+  updateBoard();
+  renderTree();
+  updateStats();
+  updateStepCounter();
+  renderSolutions();
+
+  el.nodeDetails.innerHTML = '<p class="hint">Click any node in the tree to inspect it.</p>';
+  el.btnStart.disabled = false;
+  el.btnPause.disabled = true;
+  el.btnNext.disabled = false;
+  setStatus('Press Start to explore the N-Queens state-space tree.', '');
+}
+
+/* ============================================================
+   INITIALIZATION
+   ============================================================ */
+
+function initialize() {
+  el.btnStart.addEventListener('click', startAnimation);
+  el.btnPause.addEventListener('click', pauseAnimation);
+  el.btnNext.addEventListener('click', () => {
+    pauseAnimation();
+    nextStep();
+  });
+  el.btnReset.addEventListener('click', resetVisualization);
+  el.nSelect.addEventListener('change', resetVisualization);
+
+  resetVisualization();
+}
+
+document.addEventListener('DOMContentLoaded', initialize);
+  </script>
+</body>
+</html>
